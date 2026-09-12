@@ -299,6 +299,8 @@ fn normalize_url(input: &str) -> Result<url::Url, String> {
 
 #[tauri::command]
 async fn open_float(app: AppHandle, url: String) -> Result<(), String> {
+    let tracing = std::backtrace::Backtrace::force_capture();
+    println!("{tracing}\n>>>>>>{url:?}");
     let parsed = normalize_url(&url)?;
 
     // remember in recents
@@ -457,6 +459,7 @@ fn handle_deep_link(app: &AppHandle, link: &str) {
     if parsed.scheme() != "flobro" {
         return;
     }
+    println!("{parsed:?}");
     let target = parsed
         .query_pairs()
         .find(|(k, _)| k == "url")
@@ -655,7 +658,8 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             for arg in args {
                 if arg.starts_with("flobro://") {
-                    handle_deep_link(app, &arg);
+                    // if handle deep link then not bring launcher on front
+                    return;
                 }
             }
             if let Some(launcher) = app.get_webview_window("launcher") {
@@ -781,8 +785,15 @@ pub fn run() {
                 });
             }
 
-            // deep links delivered while running (macOS) or on cold start
             let dl_handle = handle.clone();
+            // app was likely started by a deep link
+            if let Some(urls) = app.deep_link().get_current()? {
+                for url in urls {
+                    handle_deep_link(&dl_handle, url.as_str());
+                }
+            };
+
+            // deep links delivered while running (macOS) or on cold start
             app.deep_link().on_open_url(move |event| {
                 for url in event.urls() {
                     handle_deep_link(&dl_handle, url.as_str());
