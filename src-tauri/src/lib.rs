@@ -324,6 +324,7 @@ async fn open_float(app: AppHandle, url: String) -> Result<(), String> {
 
     let n = FLOAT_COUNTER.fetch_add(1, Ordering::SeqCst);
     let label = format!("float-{n}");
+    let script_inject = fs::read_to_string("script_inject/main.js").unwrap_or_default();
 
     WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed))
         .title("Flobro")
@@ -332,6 +333,7 @@ async fn open_float(app: AppHandle, url: String) -> Result<(), String> {
         .inner_size(1024.0, 768.0)
         .min_inner_size(170.0, 38.0)
         .initialization_script(&TOOLBAR_JS.replace("__FLOBRO_LANG__", resolved_lang(&settings)))
+        .initialization_script(script_inject)
         .build()
         .map_err(|e| e.to_string())?;
 
