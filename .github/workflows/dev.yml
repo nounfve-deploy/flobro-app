@@ -1,0 +1,79 @@
+name: dev
+
+on:
+  workflow_dispatch:
+
+# Never build the same tag twice in parallel: concurrent runs interleave
+# their asset uploads into one draft, leaving latest.json with signatures
+# that do not match the uploaded binaries (the v1.2.0 updater breakage).
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      # macOS code signing + notarization (only used on the macos runner).
+      # Set these repository secrets; see SETUP-GUIDE.md for how to create them:
+      #   APPLE_CERTIFICATE            base64 of the Developer ID Application .p12
+      #   APPLE_CERTIFICATE_PASSWORD   password of that .p12
+      #   APPLE_SIGNING_IDENTITY       e.g. "Developer ID Application: Your Name (TEAMID)"
+      #   APPLE_ID                     your Apple ID email
+      #   APPLE_PASSWORD               app-specific password from appleid.apple.com
+      #   APPLE_TEAM_ID                your 10-character team id
+      # Missing secrets arrive as empty strings; the Tauri bundler treats an empty
+      # APPLE_CERTIFICATE as "present" and fails. Only export the ones that are set,
+      # so unsigned builds work before the secrets exist and signing starts
+      # automatically once they do.
+      - name: Export Apple signing env when secrets are set
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            value="${!name}"
+            if [ -n "$value" ]; then
+              {
+                echo "${name}<<__FLOBRO_EOF__"
+                echo "$value"
+                echo "__FLOBRO_EOF__"
+              } >> "$GITHUB_ENV"
+            fi
+          done
+      - name: Build
+        run: |
+          cargo install tauri-cli --locked
+          cargo tauri build
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-build
+          path: |
+            src-tauri/target/release/flobro*
