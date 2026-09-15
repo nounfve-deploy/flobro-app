@@ -34,6 +34,8 @@ async fn check_update(
     app: AppHandle,
     pending: tauri::State<'_, PendingUpdate>,
 ) -> Result<Option<UpdateInfo>, String> {
+    #![allow(unused)]
+    return Ok(None);
     // Any failure (no update, offline, placeholder key) is treated as
     // "no update" so a broken check never nags the user.
     let updater = match app.updater() {
@@ -171,6 +173,8 @@ fn track_error(app: &AppHandle, context: &str, message: &str) {
 }
 
 fn track_props(app: &AppHandle, event: &str, extra: serde_json::Map<String, serde_json::Value>) {
+    #![allow(unused)]
+    return;
     let settings = load_settings(app);
     if !settings.share_usage || POSTHOG_KEY.contains("REPLACE_ME") {
         return;
@@ -404,6 +408,8 @@ fn close_window(app: &AppHandle, window: &WebviewWindow) -> Result<(), String> {
         .filter(|k| k.starts_with("float-") && **k != label)
         .count();
     if label.starts_with("float-") && floats_left == 0 {
+        return Ok(app.exit(0));
+        #[allow(unused)]
         if let Some(launcher) = app.get_webview_window("launcher") {
             let _ = launcher.show();
             let _ = launcher.set_focus();
