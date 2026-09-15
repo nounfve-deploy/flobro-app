@@ -5602,3 +5602,7 @@ dependencies = [
  "syn 2.0.118",
  "winnow 1.0.4",
 ]
+
+[[patch.unused]]
+name = "sutils"
+version = "0.1.0"

@@ -28,6 +28,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - name: Install and cache Cargo executable
+        uses: taiki-e/cache-cargo-install-action@v3
+        with:
+          tool: tauri-cli
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -69,8 +73,7 @@ jobs:
           done
       - name: Build
         run: |
-          cargo install tauri-cli --locked
-          cargo tauri build
+          cargo tauri build --no-sign
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
