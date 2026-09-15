@@ -329,7 +329,7 @@ async fn open_float(app: AppHandle, url: String) -> Result<(), String> {
         .title("Flobro")
         .decorations(false)
         .always_on_top(settings.stay_on_top)
-        .inner_size(560.0, 348.0)
+        .inner_size(1024.0, 768.0)
         .min_inner_size(170.0, 38.0)
         .initialization_script(&TOOLBAR_JS.replace("__FLOBRO_LANG__", resolved_lang(&settings)))
         .build()
