@@ -302,7 +302,7 @@ fn normalize_url(input: &str) -> Result<url::Url, String> {
 }
 
 #[tauri::command]
-async fn open_float(app: AppHandle, url: String) -> Result<(), String> {
+async fn open_float(app: AppHandle, url: String, inject: Option<String>) -> Result<(), String> {
     let parsed = normalize_url(&url)?;
 
     // remember in recents
@@ -324,7 +324,11 @@ async fn open_float(app: AppHandle, url: String) -> Result<(), String> {
 
     let n = FLOAT_COUNTER.fetch_add(1, Ordering::SeqCst);
     let label = format!("float-{n}");
-    let script_inject = fs::read_to_string("script_inject/main.js").unwrap_or_default();
+    let script_inject = if let Some(inject) = inject {
+        fs::read_to_string(inject).unwrap_or_default()
+    } else {
+        String::new()
+    };
 
     WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed))
         .title("Flobro")
@@ -469,10 +473,15 @@ fn handle_deep_link(app: &AppHandle, link: &str) {
         .query_pairs()
         .find(|(k, _)| k == "url")
         .map(|(_, v)| v.to_string());
+
+    let inject = parsed
+        .query_pairs()
+        .find(|(k, _)| k == "inject")
+        .map(|(_, v)| v.to_string());
     if let Some(target) = target {
         let handle = app.clone();
         tauri::async_runtime::spawn(async move {
-            let _ = open_float(handle, target).await;
+            let _ = open_float(handle, target, inject).await;
         });
     }
 }
@@ -808,7 +817,7 @@ pub fn run() {
             if settings.open_default_on_start && !settings.default_url.is_empty() {
                 let url = settings.default_url.clone();
                 tauri::async_runtime::spawn(async move {
-                    let _ = open_float(handle, url).await;
+                    let _ = open_float(handle, url, None).await;
                 });
             }
             Ok(())
