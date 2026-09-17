@@ -10,6 +10,9 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -17,11 +20,26 @@ jobs:
       max-parallel: 1
       matrix:
         include:
+          - platform: ubuntu-latest
           - platform: windows-latest
-            args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
+      - name: Install Ubuntu-specific packages
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y 
+          libwebkit2gtk-4.1-dev 
+          build-essential 
+          curl 
+          wget 
+          file 
+          libxdo-dev 
+          libssl-dev 
+          libayatana-appindicator3-dev 
+          librsvg2-dev
+
       - uses: actions/checkout@v5
 
       - name: Setup Rust
@@ -77,6 +95,25 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dev-build
+          name: dev-build-${{ matrix.platform }}
           path: |
-            src-tauri/target/release/flobro*
+            src-tauri/target/release/flobro
+            src-tauri/target/release/flobro.exe
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+      - name: Zip All Artifacts
+        run: |
+          for dir in */;            
+          do (cd "${dir}" && zip -r "../${dir%/}.zip" ".");
+          done
+      - name: Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: dev-${{ github.sha }}
+          files: ./*.zip
+          draft: true
+          prerelease: true
