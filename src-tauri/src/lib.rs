@@ -232,7 +232,7 @@ impl Default for Settings {
         Self {
             default_url: String::new(),
             open_default_on_start: false,
-            stay_on_top: true,
+            stay_on_top: false,
             remember_recent: true,
             share_usage: true,
             language: "auto".into(),
